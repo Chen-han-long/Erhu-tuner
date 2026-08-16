@@ -1,620 +1,573 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-<title>二胡调音器</title>
-<style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-        background: #0f0f23;
-        color: #fff;
-        font-family: "PingFang SC", "微软雅黑", sans-serif;
-        min-height: 100vh;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: flex-start;
-        text-align: center;
-        overflow-x: hidden;
-        touch-action: manipulation;
-        padding: 20px 10px;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>二胡调音器</title>
+    <style>
+        :root {
+            --bg-color: #050510;
+            --text-main: #ffffff;
+            --text-sub: #8888aa;
+            --btn-start: #ff6b35;
+            --btn-listen: #4a4a9c;
+            --accent-blue: #00d4ff;
+            --accent-green: #00e676;
+            --accent-red: #ff5252;
+        }
 
-    h1 {
-        font-size: 38px;
-        margin-bottom: 6px;
-        letter-spacing: 3px;
-        color: #ffd700;
-    }
-    .subtitle {
-        font-size: 18px;
-        color: #888;
-        margin-bottom: 16px;
-    }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
 
-    /* 圆形仪表盘 */
-    .meter {
-        position: relative;
-        width: 340px;
-        height: 210px;
-        margin: 0 auto;
-    }
-    canvas#gauge {
-        width: 340px;
-        height: 190px;
-    }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+            /* iOS 底部安全区适配 */
+            padding-bottom: calc(20px + env(safe-area-inset-bottom));
+            overflow: hidden;
+        }
 
-    /* 频率大字 */
-    .hz-box {
-        position: absolute;
-        top: 88px;
-        left: 0;
-        width: 100%;
-        text-align: center;
-        pointer-events: none;
-    }
-    .hz {
-        font-size: 88px;
-        font-weight: 900;
-        color: #ffd700;
-        line-height: 1;
-        text-shadow: 0 0 20px rgba(255,215,0,0.3);
-    }
-    .unit {
-        font-size: 24px;
-        color: #999;
-        margin-left: 4px;
-    }
+        .container {
+            width: 100%;
+            max-width: 400px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
 
-    /* 弦名 + 偏差 */
-    .info-row {
-        margin-top: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 14px;
-        flex-wrap: wrap;
-    }
-    .string-tag {
-        padding: 8px 28px;
-        border-radius: 14px;
-        font-size: 32px;
-        font-weight: bold;
-        background: #222;
-        color: #888;
-        transition: all 0.3s;
-    }
-    .string-tag.nei { color: #4fc3f7; background: #1a3a4a; box-shadow: 0 0 15px rgba(79,195,247,0.3); }
-    .string-tag.wai { color: #81c784; background: #1a3a2a; box-shadow: 0 0 15px rgba(129,199,132,0.3); }
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 5px;
+        }
 
-    .deviation {
-        font-size: 36px;
-        font-weight: bold;
-        min-width: 80px;
-        padding: 6px 14px;
-        border-radius: 10px;
-    }
-    .dev-low { color: #4fc3f7; background: rgba(79,195,247,0.1); }
-    .dev-good { color: #81c784; background: rgba(129,199,132,0.1); }
-    .dev-high { color: #ef5350; background: rgba(239,83,80,0.1); }
-    .dev-idle { color: #666; }
+        .header h1 {
+            font-size: 28px;
+            color: #ffd700;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+        }
 
-    /* 大按钮 */
-    .btn-main {
-        margin-top: 24px;
-        font-size: 30px;
-        padding: 16px 56px;
-        border: none;
-        border-radius: 24px;
-        background: linear-gradient(135deg, #ff7043, #ff5722);
-        color: #fff;
-        cursor: pointer;
-        box-shadow: 0 6px 20px rgba(255,87,34,0.4);
-        font-weight: bold;
-        letter-spacing: 2px;
-    }
-    .btn-main:active { transform: scale(0.96); }
-    .btn-main.disabled { background: #555; box-shadow: none; }
+        .emoji {
+            font-size: 32px;
+        }
 
-    /* 参考音 */
-    .ref-row {
-        margin-top: 20px;
-        display: flex;
-        gap: 16px;
-    }
-    .btn-ref {
-        font-size: 22px;
-        padding: 12px 26px;
-        border: none;
-        border-radius: 16px;
-        background: #3949ab;
-        color: #fff;
-        cursor: pointer;
-        font-weight: bold;
-    }
-    .btn-ref:active { transform: scale(0.95); }
-    .btn-ref.active { background: #5c6bc0; box-shadow: 0 0 15px rgba(92,107,192,0.5); }
+        .status-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-sub);
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
 
-    .tip {
-        margin-top: 16px;
-        font-size: 18px;
-        color: #666;
-        line-height: 1.6;
-    }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #555;
+            transition: background-color 0.3s;
+        }
 
-    /* 状态指示灯 */
-    .status-dot {
-        width: 14px;
-        height: 14px;
-        border-radius: 50%;
-        display: inline-block;
-        margin-right: 8px;
-        vertical-align: middle;
-        background: #555;
-    }
-    .status-dot.active { background: #4caf50; box-shadow: 0 0 8px #4caf50; }
-    .status-dot.listen { background: #ff9800; box-shadow: 0 0 8px #ff9800; }
+        .status-dot.active {
+            background-color: var(--accent-green);
+            box-shadow: 0 0 8px var(--accent-green);
+        }
 
-    /* 微信遮罩 */
-    #wxTip {
-        display: none;
-        position: fixed;
-        inset: 0;
-        background: #0a0a1a;
-        color: #fff;
-        z-index: 99999;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        text-align: center;
-        padding: 40px 24px;
-    }
-    #wxTip .wx-icon { font-size: 64px; margin-bottom: 20px; }
-    #wxTip .wx-title {
-        font-size: 30px;
-        line-height: 1.5;
-        margin-bottom: 30px;
-        color: #ffd700;
-    }
-    #wxTip .wx-step {
-        font-size: 24px;
-        color: #e0e0e0;
-        line-height: 2;
-        background: #1a1a3e;
-        padding: 24px 32px;
-        border-radius: 16px;
-        margin-bottom: 30px;
-    }
-    #wxTip .wx-step b { color: #ffd700; }
-    #wxTip button {
-        font-size: 26px;
-        padding: 14px 40px;
-        border-radius: 16px;
-        border: none;
-        background: #ff7043;
-        color: #fff;
-    }
-    #copied {
-        margin-top: 14px;
-        font-size: 22px;
-        color: #81c784;
-        display: none;
-    }
+        /* 表盘容器 */
+        .meter-container {
+            position: relative;
+            width: 280px;
+            height: 160px; /* 半圆高度 */
+            margin: 10px 0;
+        }
 
-    /* 引导弹窗 */
-    #guide {
-        display: none;
-        position: fixed;
-        inset: 0;
-        background: rgba(0,0,0,0.85);
-        z-index: 99998;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: 30px;
-    }
-    #guide .guide-box {
-        background: #1e1e3a;
-        border-radius: 20px;
-        padding: 30px;
-        max-width: 400px;
-        text-align: left;
-    }
-    #guide h2 { font-size: 26px; color: #ffd700; margin-bottom: 16px; text-align: center; }
-    #guide p { font-size: 20px; color: #ccc; line-height: 1.8; margin-bottom: 10px; }
-    #guide .guide-btn {
-        display: block;
-        margin: 20px auto 0;
-        font-size: 24px;
-        padding: 12px 40px;
-        border: none;
-        border-radius: 14px;
-        background: #ff7043;
-        color: #fff;
-    }
-</style>
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 赫兹数显示在表盘下方 */
+        .hz-display {
+            position: absolute;
+            bottom: 20px; /* 调整位置到表盘下方区域 */
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 42px;
+            font-weight: bold;
+            color: var(--text-main);
+            text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+            background: rgba(0,0,0,0.4);
+            padding: 0 15px;
+            border-radius: 10px;
+            z-index: 10;
+            white-space: nowrap;
+        }
+        
+        .hz-label {
+            font-size: 18px;
+            color: var(--accent-blue);
+            margin-left: 2px;
+        }
+
+        /* 文字提示 */
+        .status-text {
+            font-size: 20px;
+            color: var(--text-sub);
+            background: rgba(255, 255, 255, 0.05);
+            padding: 10px 25px;
+            border-radius: 8px;
+            margin-top: 10px;
+            min-width: 150px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        
+        .status-text.ready {
+            color: var(--accent-green);
+            background: rgba(0, 230, 118, 0.1);
+        }
+
+        /* 按钮通用样式 */
+        .btn {
+            width: 100%;
+            padding: 16px 20px;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            -webkit-touch-callout: none;
+            user-select: none;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+            opacity: 0.9;
+        }
+
+        .btn-start {
+            background: linear-gradient(135deg, #ff8a50, #ff4d00);
+            box-shadow: 0 4px 20px rgba(255, 107, 53, 0.4);
+            margin-top: 5px;
+        }
+
+        .btn-stop {
+            background: linear-gradient(135deg, #666, #333);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            width: 100%;
+            margin-top: 5px;
+        }
+
+        .btn-listen {
+            flex: 1;
+            background: linear-gradient(135deg, #5c5ca8, #3a3a80);
+            box-shadow: 0 4px 10px rgba(74, 74, 156, 0.3);
+            font-size: 16px;
+            padding: 14px 10px;
+        }
+
+        .info-text {
+            font-size: 12px;
+            color: var(--text-sub);
+            text-align: center;
+            line-height: 1.6;
+            margin-top: 10px;
+            opacity: 0.8;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
 </head>
 <body>
 
-<!-- 微信遮罩 -->
-<div id="wxTip">
-    <div class="wx-icon">⚠️</div>
-    <div class="wx-title">微信里不能直接调音</div>
-    <div class="wx-step">
-        <b>iPhone 用户：</b><br>
-        点右上角 <b>···</b> → 选 <b>「在 Safari 中打开」</b><br><br>
-        <b>安卓用户：</b><br>
-        点右上角 <b>···</b> → 选 <b>「在浏览器打开」</b>
+<div class="container">
+    <div class="header">
+        <span class="emoji">🎻</span>
+        <h1>二胡调音器</h1>
     </div>
-    <button onclick="copyLink()">📋 复制网址</button>
-    <div id="copied">✅ 已复制，去浏览器粘贴</div>
-</div>
 
-<!-- 首次引导 -->
-<div id="guide">
-    <div class="guide-box">
-        <h2>🎻 使用说明</h2>
-        <p>① 点下方 <b style="color:#ff7043">「开始调音」</b> 按钮</p>
-        <p>② 弹出提示时选 <b style="color:#81c784">「允许」</b> 使用麦克风</p>
-        <p>③ 拉二胡，屏幕显示 <b style="color:#ffd700">频率数字</b></p>
-        <p>④ 看指针：<span style="color:#4fc3f7">偏左=偏低</span> · <span style="color:#81c784">中间=准</span> · <span style="color:#ef5350">偏右=偏高</span></p>
-        <p>⑤ 不确定音高时，可点 <b style="color:#5c6bc0">「听内弦/听外弦」</b> 播放标准音</p>
-        <button class="guide-btn" onclick="closeGuide()">我知道了</button>
+    <div class="status-container">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">未启动</span>
     </div>
-</div>
 
-<h1>🎻 二胡调音器</h1>
-<div class="subtitle"><span class="status-dot" id="statusDot"></span><span id="statusText">未启动</span></div>
-
-<div class="meter">
-    <canvas id="gauge" width="680" height="380"></canvas>
-    <div class="hz-box">
-        <span class="hz" id="hz">--</span>
-        <span class="unit">Hz</span>
+    <!-- 表盘区域 -->
+    <div class="meter-container">
+        <canvas id="meterCanvas" width="560" height="320"></canvas>
+        <div class="hz-display">
+            <span id="hzValue">0.0</span>
+            <span class="hz-label">Hz</span>
+        </div>
     </div>
-</div>
 
-<div class="info-row">
-    <span class="string-tag" id="stringTag">等待拉琴</span>
-    <span class="deviation dev-idle" id="deviation">—</span>
-</div>
+    <div class="status-text" id="actionText">等待拉琴</div>
 
-<button class="btn-main" id="startBtn" onclick="startTuner()">🎤 开始调音</button>
+    <!-- 开始/停止按钮 -->
+    <button class="btn btn-start" id="toggleBtn">
+        <span>🎤</span> 开始调音
+    </button>
 
-<div class="ref-row">
-    <button class="btn-ref" id="refNei" onclick="playRef(293.66, 'refNei')">🔊 听内弦 D</button>
-    <button class="btn-ref" id="refWai" onclick="playRef(440.00, 'refWai')">🔊 听外弦 A</button>
-</div>
+    <!-- 听音按钮组 -->
+    <div class="btn-group">
+        <button class="btn btn-listen" id="playInnerBtn">
+            🔊 听内弦 D
+        </button>
+        <button class="btn btn-listen" id="playOuterBtn">
+            🔊 听外弦 A
+        </button>
+    </div>
 
-<div class="tip">
-    拉琴时琴码靠近手机底部麦克风<br>
-    内弦标准 D ≈ 293.7Hz · 外弦标准 A ≈ 440Hz
+    <div class="info-text">
+        拉琴时琴码靠近手机底部麦克风<br>
+        内弦标准 D ≈ 293.7Hz · 外弦标准 A ≈ 440Hz
+    </div>
 </div>
 
 <script>
-// ====== 微信检测 ======
-(function(){
-    if(/MicroMessenger/i.test(navigator.userAgent)){
-        document.getElementById('wxTip').style.display = 'flex';
+    // DOM 元素
+    const canvas = document.getElementById('meterCanvas');
+    const ctx = canvas.getContext('2d');
+    const hzValueEl = document.getElementById('hzValue');
+    const actionTextEl = document.getElementById('actionText');
+    const toggleBtn = document.getElementById('toggleBtn');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const playInnerBtn = document.getElementById('playInnerBtn');
+    const playOuterBtn = document.getElementById('playOuterBtn');
+
+    // 音频上下文
+    let audioContext;
+    let analyser;
+    let microphone;
+    let dataArray;
+    let isListening = false;
+    let animationId;
+
+    // 常量
+    const INNER_FREQ = 293.7;
+    const OUTER_FREQ = 440.0;
+    const MAX_DEVIATION = 504; // 表盘最大刻度
+    const CENTER_X = canvas.width / 2;
+    const CENTER_Y = canvas.height / 2; // 实际上是半圆的圆心
+    const RADIUS = 130; // 表盘半径
+
+    // 初始化 Canvas 尺寸 (高清屏适配)
+    function resizeCanvas() {
+        const containerWidth = canvas.parentElement.clientWidth;
+        canvas.style.width = containerWidth + "px";
+        canvas.style.height = (containerWidth * (160 / 280)) + "px"; // 保持比例
+        // 实际绘制分辨率放大，保证清晰度
+        canvas.width = containerWidth * 2;
+        canvas.height = (containerWidth * (160 / 280)) * 2;
+        drawMeter(0); // 重绘初始状态
     }
-})();
-function copyLink(){
-    if(navigator.clipboard){
-        navigator.clipboard.writeText(location.href).then(function(){
-            document.getElementById('copied').style.display = 'block';
-        });
-    } else {
-        // fallback
-        var ta = document.createElement('textarea');
-        ta.value = location.href;
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
-        document.getElementById('copied').style.display = 'block';
-    }
-}
+    
+    window.addEventListener('resize', resizeCanvas);
 
-// ====== 首次引导 ======
-(function(){
-    if(!localStorage.getItem('erhu_guide_seen') && !/MicroMessenger/i.test(navigator.userAgent)){
-        setTimeout(function(){ document.getElementById('guide').style.display = 'flex'; }, 500);
-    }
-})();
-function closeGuide(){
-    localStorage.setItem('erhu_guide_seen', '1');
-    document.getElementById('guide').style.display = 'none';
-}
+    // 绘制半圆表盘
+    function drawMeter(deviation) {
+        const w = canvas.width;
+        const h = canvas.height;
+        const cx = w / 2;
+        const cy = h; // 半圆圆心在底部中心
+        const r = RADIUS * (w / 560); // 自适应半径
+        
+        ctx.clearRect(0, 0, w, h);
 
-// ====== 调音器核心 ======
-var audioCtx = null, analyser = null, stream = null, isRunning = false;
-var canvas = document.getElementById('gauge');
-var ctx = canvas.getContext('2d');
+        // 1. 绘制背景弧线
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, Math.PI, 0, false); // 上半圆
+        ctx.lineWidth = 20 * (w / 560);
+        ctx.strokeStyle = '#1a1a3e';
+        ctx.stroke();
 
-var TARGET_NEI = 293.66;
-var TARGET_WAI = 440.00;
+        // 2. 绘制刻度
+        const startAngle = Math.PI;
+        const endAngle = 0;
+        const totalAngle = Math.PI;
+        const tickCount = 21; // 21个刻度 (-504 到 504)
 
-function setStatus(state, text){
-    var dot = document.getElementById('statusDot');
-    dot.className = 'status-dot' + (state ? ' ' + state : '');
-    document.getElementById('statusText').textContent = text;
-}
+        for (let i = 0; i <= tickCount; i++) {
+            const angle = startAngle + (i / tickCount) * totalAngle;
+            const isMajor = i % 5 === 0; // 每5格一个大刻度
+            
+            const innerR = isMajor ? r - 30 * (w / 560) : r - 20 * (w / 560);
+            const outerR = r - 5 * (w / 560);
+            
+            const x1 = cx + Math.cos(angle) * innerR;
+            const y1 = cy + Math.sin(angle) * innerR;
+            const x2 = cx + Math.cos(angle) * outerR;
+            const y2 = cy + Math.sin(angle) * outerR;
 
-function startTuner() {
-    if (isRunning) return;
-    var btn = document.getElementById('startBtn');
-    btn.textContent = '⏳ 启动中…';
-    btn.className = 'btn-main disabled';
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.lineWidth = isMajor ? 4 : 2;
+            ctx.strokeStyle = isMajor ? '#ffffff' : '#555';
+            ctx.stroke();
 
-    navigator.mediaDevices.getUserMedia({
-        audio: {
-            echoCancellation: false,
-            noiseSuppression: false,
-            autoGainControl: false
+            // 绘制大刻度的数字
+            if (isMajor) {
+                const textR = innerR - 15 * (w / 560);
+                const tx = cx + Math.cos(angle) * textR;
+                const ty = cy + Math.sin(angle) * textR;
+                ctx.font = `${12 * (w / 560)}px sans-serif`;
+                ctx.fillStyle = '#aaa';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                // 映射数值
+                const val = Math.round((i / tickCount) * (MAX_DEVIATION * 2) - MAX_DEVIATION);
+                ctx.fillText(val, tx, ty);
+            }
         }
-    }).then(function(s) {
-        stream = s;
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 8192;
-        var source = audioCtx.createMediaStreamSource(stream);
-        source.connect(analyser);
-        isRunning = true;
-        btn.textContent = '✅ 调音中…';
-        setStatus('active', '正在监听');
-        detectLoop();
-    }).catch(function(err) {
-        btn.textContent = '🎤 开始调音';
-        btn.className = 'btn-main';
-        if(err && err.name === 'NotAllowedError'){
-            alert('请允许麦克风权限后重试\n\n如果看不到权限提示，请检查浏览器地址栏右侧的权限设置');
-        } else if(err && err.name === 'NotFoundError'){
-            alert('未检测到麦克风设备');
+
+        // 3. 绘制彩色区域 (红-黄-绿-黄-红)
+        const gradient = ctx.createLinearGradient(cx - r, 0, cx + r, 0);
+        gradient.addColorStop(0, '#ff5252'); // 左红
+        gradient.addColorStop(0.25, '#ffd700'); // 左黄
+        gradient.addColorStop(0.5, '#00e676'); // 绿
+        gradient.addColorStop(0.75, '#ffd700'); // 右黄
+        gradient.addColorStop(1, '#ff5252'); // 右红
+        
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, Math.PI, 0, false);
+        ctx.lineWidth = 20 * (w / 560);
+        ctx.strokeStyle = gradient;
+        ctx.stroke();
+
+        // 4. 绘制指针
+        // 限制偏差显示范围
+        const limitedDeviation = Math.max(-MAX_DEVIATION, Math.min(MAX_DEVIATION, deviation));
+        const pointerAngle = startAngle + ((limitedDeviation + MAX_DEVIATION) / (MAX_DEVIATION * 2)) * totalAngle;
+        
+        const pointerLength = r - 25 * (w / 560);
+        const px = cx + Math.cos(pointerAngle) * pointerLength;
+        const py = cy + Math.sin(pointerAngle) * pointerLength;
+
+        // 指针底座
+        ctx.beginPath();
+        ctx.arc(cx, cy, 10 * (w / 560), 0, Math.PI * 2);
+        ctx.fillStyle = '#fff';
+        ctx.fill();
+
+        // 指针线条
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(px, py);
+        ctx.lineWidth = 4 * (w / 560);
+        ctx.strokeStyle = '#fff';
+        ctx.lineCap = 'round';
+        ctx.stroke();
+
+        // 指针头部圆点
+        ctx.beginPath();
+        ctx.arc(px, py, 6 * (w / 560), 0, Math.PI * 2);
+        ctx.fillStyle = '#ff5252';
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    }
+
+    // 音频处理
+    async function startListening() {
+        try {
+            // iOS 必须在用户交互后初始化 AudioContext
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioContext.state === 'suspended') {
+                await audioContext.resume();
+            }
+
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            microphone = audioContext.createMediaStreamSource(stream);
+            analyser = audioContext.createAnalyser();
+            analyser.fftSize = 2048;
+            microphone.connect(analyser);
+            dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+            isListening = true;
+            toggleBtn.className = 'btn btn-stop';
+            toggleBtn.innerHTML = '<span>🛑</span> 停止调音';
+            statusDot.classList.add('active');
+            statusText.innerText = '监听中';
+            actionTextEl.classList.add('ready');
+            
+            detectPitch();
+        } catch (err) {
+            alert("无法访问麦克风，请检查权限设置。");
+            console.error(err);
+        }
+    }
+
+    function stopListening() {
+        isListening = false;
+        toggleBtn.className = 'btn btn-start';
+        toggleBtn.innerHTML = '<span>🎤</span> 开始调音';
+        statusDot.classList.remove('active');
+        statusText.innerText = '未启动';
+        actionTextEl.innerText = '等待拉琴';
+        actionTextEl.classList.remove('ready');
+        
+        if (microphone) {
+            microphone.disconnect();
+        }
+        if (animationId) {
+            cancelAnimationFrame(animationId);
+        }
+        // 重置表盘
+        hzValueEl.innerText = '0.0';
+        drawMeter(0);
+    }
+
+    // 简单的音高检测逻辑 (基于 autocorrelation)
+    function detectPitch() {
+        if (!isListening) return;
+        analyser.getByteTimeDomainData(dataArray);
+        
+        let bestOffset = -1;
+        let bestCorrelation = 0;
+        let foundGoodCorrelation = false;
+        const rms = Math.sqrt(dataArray.reduce((acc, val) => acc + Math.pow(val - 128, 2), 0) / dataArray.length);
+
+        if (rms > 10) { // 音量阈值
+            let lastCorrelation = 1;
+            for (let offset = 0; offset < 800; offset++) {
+                let correlation = 0;
+                for (let i = 0; i < 1000; i++) {
+                    correlation += Math.abs((dataArray[i] - 128) * (dataArray[i + offset] - 128));
+                }
+                correlation /= 1000;
+                if (correlation > 0.9 && correlation <= lastCorrelation) {
+                    foundGoodCorrelation = true;
+                    if (!foundGoodCorrelation) {
+                        bestCorrelation = correlation;
+                        bestOffset = offset;
+                    } else {
+                        if (correlation > bestCorrelation) {
+                            bestCorrelation = correlation;
+                            bestOffset = offset;
+                        }
+                        break;
+                    }
+                } else if (foundGoodCorrelation) {
+                    break;
+                }
+                lastCorrelation = correlation;
+            }
+
+            if (bestOffset !== -1) {
+                const sampleRate = audioContext.sampleRate;
+                const freq = sampleRate / bestOffset;
+                
+                // 只处理二胡附近的频率范围
+                if (freq > 200 && freq < 600) {
+                    updateUI(freq);
+                } else {
+                    actionTextEl.innerText = '等待拉琴...';
+                }
+            }
         } else {
-            alert('无法启动调音器：' + (err && err.message ? err.message : '未知错误'));
+            actionTextEl.innerText = '等待拉琴...';
+        }
+        
+        animationId = requestAnimationFrame(detectPitch);
+    }
+
+    // 更新 UI
+    function updateUI(freq) {
+        hzValueEl.innerText = freq.toFixed(1);
+        
+        // 计算偏差 (以 D 弦为基准参考，或者可以根据最近弦计算)
+        // 这里简单处理：计算与目标频率的最小差值
+        const diffD = freq - INNER_FREQ;
+        const diffA = freq - OUTER_FREQ;
+        const minDiff = Math.abs(diffD) < Math.abs(diffA) ? diffD : diffA;
+        
+        // 映射到表盘刻度
+        let deviation = minDiff * 2; // 放大系数，让指针动得明显
+        deviation = Math.max(-MAX_DEVIATION, Math.min(MAX_DEVIATION, deviation));
+        
+        drawMeter(deviation);
+
+        // 判断音准状态
+        if (Math.abs(minDiff) < 5) {
+            actionTextEl.innerText = '音准很好！';
+            actionTextEl.style.color = '#00e676';
+        } else if (minDiff < 0) {
+            actionTextEl.innerText = '偏低 (拧松)';
+            actionTextEl.style.color = '#ff5252';
+        } else {
+            actionTextEl.innerText = '偏高 (拧紧)';
+            actionTextEl.style.color = '#ff5252';
+        }
+    }
+
+    // 事件监听
+    toggleBtn.addEventListener('click', () => {
+        if (isListening) {
+            stopListening();
+        } else {
+            startListening();
         }
     });
-}
 
-function detectLoop() {
-    var buffer = new Float32Array(analyser.fftSize);
-    function loop() {
-        if(!isRunning) return;
-        analyser.getFloatTimeDomainData(buffer);
-        var freq = autoCorrelate(buffer, audioCtx.sampleRate);
-
-        if (freq && freq > 240 && freq < 500) {
-            document.getElementById("hz").textContent = freq.toFixed(1);
-
-            var targetFreq = 0;
-            var tagEl = document.getElementById("stringTag");
-            var devEl = document.getElementById("deviation");
-
-            if (Math.abs(freq - TARGET_NEI) < 25) {
-                targetFreq = TARGET_NEI;
-                tagEl.className = "string-tag nei";
-                tagEl.textContent = "♪ 内弦 D";
-            } else if (Math.abs(freq - TARGET_WAI) < 25) {
-                targetFreq = TARGET_WAI;
-                tagEl.className = "string-tag wai";
-                tagEl.textContent = "♪ 外弦 A";
-            } else {
-                tagEl.className = "string-tag";
-                tagEl.textContent = "调音中…";
-            }
-
-            var cents = 0;
-            if (targetFreq > 0 && freq > 0) {
-                cents = 1200 * Math.log2(freq / targetFreq);
-            }
-
-            if (Math.abs(cents) < 2) {
-                devEl.textContent = "✓ 准";
-                devEl.className = "deviation dev-good";
-            } else if (cents < 0) {
-                devEl.textContent = cents.toFixed(0) + "¢ 低";
-                devEl.className = "deviation dev-low";
-            } else {
-                devEl.textContent = "+" + cents.toFixed(0) + "¢ 高";
-                devEl.className = "deviation dev-high";
-            }
-
-            drawGauge(cents, true);
-        } else {
-            document.getElementById("hz").textContent = "--";
-            var tagEl2 = document.getElementById("stringTag");
-            tagEl2.className = "string-tag";
-            tagEl2.textContent = "等待拉琴…";
-            var devEl2 = document.getElementById("deviation");
-            devEl2.textContent = "—";
-            devEl2.className = "deviation dev-idle";
-            drawGauge(0, false);
-        }
-        requestAnimationFrame(loop);
-    }
-    loop();
-}
-
-// ====== 画仪表盘 ======
-function drawGauge(cents, hasSignal) {
-    var w = canvas.width, h = canvas.height;
-    var cx = w / 2, cy = h - 40, radius = 155;
-
-    ctx.clearRect(0, 0, w, h);
-
-    var startAngle = -135 * Math.PI / 180;
-    var endAngle = 135 * Math.PI / 180;
-    var range = endAngle - startAngle;
-
-    // 背景弧
-    ctx.beginPath();
-    ctx.strokeStyle = '#222';
-    ctx.lineWidth = 24;
-    ctx.lineCap = 'round';
-    ctx.arc(cx, cy, radius, startAngle, endAngle);
-    ctx.stroke();
-
-    // 彩色弧段
-    var segs = [
-        { from: -135, to: -20, color: '#4fc3f7' },
-        { from: -20,  to: 20,  color: '#81c784' },
-        { from: 20,   to: 135, color: '#ef5350' }
-    ];
-    for (var i = 0; i < segs.length; i++) {
-        var s = segs[i];
-        var a1 = startAngle + (s.from + 135) / 270 * range;
-        var a2 = startAngle + (s.to + 135) / 270 * range;
-        ctx.beginPath();
-        ctx.strokeStyle = s.color;
-        ctx.lineWidth = 24;
-        ctx.lineCap = 'round';
-        ctx.arc(cx, cy, radius, a1, a2);
-        ctx.stroke();
+    // 播放标准音 (Web Audio API)
+    function playTone(frequency) {
+        if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioContext.state === 'suspended') audioContext.resume();
+        
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        osc.connect(gain);
+        gain.connect(audioContext.destination);
+        
+        osc.frequency.value = frequency;
+        osc.type = 'sine';
+        
+        gain.gain.setValueAtTime(0, audioContext.currentTime);
+        gain.gain.linearRampToValueAtTime(0.5, audioContext.currentTime + 0.1);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 2);
+        
+        osc.start();
+        osc.stop(audioContext.currentTime + 2);
     }
 
-    // 刻度
-    ctx.fillStyle = '#aaa';
-    ctx.font = '22px sans-serif';
-    ctx.textAlign = 'center';
-    var labels = ['-50¢', '-25¢', '0', '+25¢', '+50¢'];
-    var labelDeg = [-100, -50, 0, 50, 100];
-    for (var j = 0; j < labels.length; j++) {
-        var ang = startAngle + (labelDeg[j] + 135) / 270 * range;
-        var lx = cx + (radius - 55) * Math.cos(ang);
-        var ly = cy + (radius - 55) * Math.sin(ang);
-        ctx.fillText(labels[j], lx, ly + 8);
-    }
+    playInnerBtn.addEventListener('click', () => playTone(INNER_FREQ));
+    playOuterBtn.addEventListener('click', () => playTone(OUTER_FREQ));
 
-    // 指针
-    if (hasSignal) {
-        var clamped = Math.max(-55, Math.min(55, cents));
-        var pAngle = startAngle + (clamped + 135) / 270 * range;
+    // 初始化
+    resizeCanvas();
+    drawMeter(0);
 
-        // 阴影
-        ctx.beginPath();
-        ctx.strokeStyle = 'rgba(0,0,0,0.4)';
-        ctx.lineWidth = 10;
-        ctx.lineCap = 'round';
-        ctx.moveTo(cx + 4, cy + 4);
-        ctx.lineTo(cx + 4 + (radius - 45) * Math.cos(pAngle), cy + 4 + (radius - 45) * Math.sin(pAngle));
-        ctx.stroke();
-
-        // 指针
-        ctx.beginPath();
-        ctx.strokeStyle = '#ffd700';
-        ctx.lineWidth = 8;
-        ctx.lineCap = 'round';
-        ctx.moveTo(cx, cy);
-        ctx.lineTo(cx + (radius - 45) * Math.cos(pAngle), cy + (radius - 45) * Math.sin(pAngle));
-        ctx.stroke();
-
-        // 圆心
-        ctx.beginPath();
-        ctx.fillStyle = '#ffd700';
-        ctx.arc(cx, cy, 14, 0, 2 * Math.PI);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.fillStyle = '#333';
-        ctx.arc(cx, cy, 6, 0, 2 * Math.PI);
-        ctx.fill();
-    } else {
-        // 无信号 - 居中虚线
-        var midAngle = startAngle + 135 / 270 * range;
-        ctx.beginPath();
-        ctx.strokeStyle = '#555';
-        ctx.lineWidth = 5;
-        ctx.setLineDash([10, 8]);
-        ctx.lineCap = 'round';
-        ctx.moveTo(cx, cy);
-        ctx.lineTo(cx + (radius - 45) * Math.cos(midAngle), cy + (radius - 45) * Math.sin(midAngle));
-        ctx.stroke();
-        ctx.setLineDash([]);
-
-        ctx.beginPath();
-        ctx.fillStyle = '#555';
-        ctx.arc(cx, cy, 12, 0, 2 * Math.PI);
-        ctx.fill();
-    }
-}
-
-// ====== 自相关测频 ======
-function autoCorrelate(buf, sampleRate) {
-    var size = buf.length;
-    var rms = 0;
-    for (var i = 0; i < size; i++) rms += buf[i] * buf[i];
-    rms = Math.sqrt(rms / size);
-    if (rms < 0.006) return 0;
-
-    var r1 = 0, r2 = size - 1;
-    for (var i = 0; i < size / 2; i++)
-        if (Math.abs(buf[i]) < 0.015) { r1 = i; break; }
-    for (var i = 1; i < size / 2; i++)
-        if (Math.abs(buf[size - i]) < 0.015) { r2 = size - i; break; }
-
-    buf = buf.slice(r1, r2);
-    size = buf.length;
-    if (size < 64) return 0;
-
-    var c = new Array(size);
-    for (var i = 0; i < size; i++) c[i] = 0;
-    for (var i = 0; i < size; i++)
-        for (var j = 0; j < size - i; j++)
-            c[i] += buf[j] * buf[j + i];
-
-    var d = 0;
-    while (d < size - 1 && c[d] > c[d + 1]) d++;
-    var maxval = -1, maxpos = -1;
-    for (var i = d; i < size; i++) {
-        if (c[i] > maxval) {
-            maxval = c[i];
-            maxpos = i;
-        }
-    }
-    if (maxpos <= 0) return 0;
-    return sampleRate / maxpos;
-}
-
-// ====== 参考音 ======
-var refOsc = null, refGain = null;
-function playRef(freq, btnId) {
-    if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-
-    // 停止之前的
-    stopRef();
-
-    refOsc = audioCtx.createOscillator();
-    refGain = audioCtx.createGain();
-    refOsc.type = 'sine';
-    refOsc.frequency.value = freq;
-    refGain.gain.value = 0.25;
-    refOsc.connect(refGain);
-    refGain.connect(audioCtx.destination);
-    refOsc.start();
-
-    var btn = document.getElementById(btnId);
-    btn.className = 'btn-ref active';
-    btn.textContent = '⏹ 停止';
-
-    // 3秒后自动停
-    setTimeout(function(){ stopRef(); }, 3000);
-}
-
-function stopRef() {
-    try { if(refOsc) refOsc.stop(); } catch(e){}
-    refOsc = null;
-    document.getElementById('refNei').className = 'btn-ref';
-    document.getElementById('refNei').textContent = '🔊 听内弦 D';
-    document.getElementById('refWai').className = 'btn-ref';
-    document.getElementById('refWai').textContent = '🔊 听外弦 A';
-}
-
-// 初始画一次空仪表
-drawGauge(0, false);
 </script>
-
 </body>
 </html>
