@@ -39,18 +39,18 @@
 
         .container {
             width: 100%;
-            max-width: 400px;
+            max-width: 420px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 15px;
+            gap: 12px;
         }
 
         .header {
             display: flex;
             align-items: center;
             gap: 10px;
-            margin-bottom: 5px;
+            margin-bottom: 0px;
         }
 
         .header h1 {
@@ -70,7 +70,7 @@
             gap: 8px;
             color: var(--text-sub);
             font-size: 14px;
-            margin-bottom: 10px;
+            margin-bottom: 5px;
         }
 
         .status-dot {
@@ -86,12 +86,12 @@
             box-shadow: 0 0 8px var(--accent-green);
         }
 
-        /* 表盘容器 */
+        /* 表盘容器 - 增大高度，让表盘靠上 */
         .meter-container {
             position: relative;
-            width: 280px;
-            height: 160px; /* 半圆高度 */
-            margin: 10px 0;
+            width: 300px;
+            height: 170px; /* 增加高度，容纳更大的表盘 */
+            margin: 5px 0 0 0; /* 减少上边距 */
         }
 
         canvas {
@@ -100,27 +100,28 @@
             height: 100%;
         }
 
-        /* 赫兹数显示在表盘下方 */
+        /* 赫兹数显示 - 大幅下移，远离表盘 */
         .hz-display {
             position: absolute;
-            bottom: 20px; /* 调整位置到表盘下方区域 */
+            bottom: 5px; /* 放置在容器底部 */
             left: 50%;
             transform: translateX(-50%);
-            font-size: 42px;
+            font-size: 46px;
             font-weight: bold;
             color: var(--text-main);
             text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
-            background: rgba(0,0,0,0.4);
-            padding: 0 15px;
-            border-radius: 10px;
+            background: rgba(0,0,0,0.5);
+            padding: 2px 20px;
+            border-radius: 12px;
             z-index: 10;
             white-space: nowrap;
+            letter-spacing: 1px;
         }
         
         .hz-label {
-            font-size: 18px;
+            font-size: 20px;
             color: var(--accent-blue);
-            margin-left: 2px;
+            margin-left: 4px;
         }
 
         /* 文字提示 */
@@ -130,7 +131,7 @@
             background: rgba(255, 255, 255, 0.05);
             padding: 10px 25px;
             border-radius: 8px;
-            margin-top: 10px;
+            margin-top: 5px;
             min-width: 150px;
             text-align: center;
             transition: all 0.3s;
@@ -161,7 +162,7 @@
         }
 
         .btn:active {
-            transform: scale(0.98);
+            transform: scale(0.97);
             opacity: 0.9;
         }
 
@@ -196,7 +197,7 @@
             color: var(--text-sub);
             text-align: center;
             line-height: 1.6;
-            margin-top: 10px;
+            margin-top: 8px;
             opacity: 0.8;
         }
 
@@ -220,7 +221,7 @@
 
     <!-- 表盘区域 -->
     <div class="meter-container">
-        <canvas id="meterCanvas" width="560" height="320"></canvas>
+        <canvas id="meterCanvas" width="600" height="340"></canvas>
         <div class="hz-display">
             <span id="hzValue">0.0</span>
             <span class="hz-label">Hz</span>
@@ -274,18 +275,20 @@
     const INNER_FREQ = 293.7;
     const OUTER_FREQ = 440.0;
     const MAX_DEVIATION = 504; // 表盘最大刻度
-    const CENTER_X = canvas.width / 2;
-    const CENTER_Y = canvas.height / 2; // 实际上是半圆的圆心
-    const RADIUS = 130; // 表盘半径
+    const CANVAS_WIDTH = 600;
+    const CANVAS_HEIGHT = 324;
+    const CENTER_X = CANVAS_WIDTH / 2;
+    const CENTER_Y = CANVAS_HEIGHT; // 半圆圆心在底部
+    const RADIUS = 155; // 增大表盘半径
 
     // 初始化 Canvas 尺寸 (高清屏适配)
     function resizeCanvas() {
         const containerWidth = canvas.parentElement.clientWidth;
         canvas.style.width = containerWidth + "px";
-        canvas.style.height = (containerWidth * (160 / 280)) + "px"; // 保持比例
+        canvas.style.height = (containerWidth * (CANVAS_HEIGHT / CANVAS_WIDTH)) + "px";
         // 实际绘制分辨率放大，保证清晰度
         canvas.width = containerWidth * 2;
-        canvas.height = (containerWidth * (160 / 280)) * 2;
+        canvas.height = (containerWidth * (CANVAS_HEIGHT / CANVAS_WIDTH)) * 2;
         drawMeter(0); // 重绘初始状态
     }
     
@@ -297,14 +300,14 @@
         const h = canvas.height;
         const cx = w / 2;
         const cy = h; // 半圆圆心在底部中心
-        const r = RADIUS * (w / 560); // 自适应半径
+        const r = RADIUS * (w / CANVAS_WIDTH); // 自适应半径
         
         ctx.clearRect(0, 0, w, h);
 
         // 1. 绘制背景弧线
         ctx.beginPath();
         ctx.arc(cx, cy, r, Math.PI, 0, false); // 上半圆
-        ctx.lineWidth = 20 * (w / 560);
+        ctx.lineWidth = 24 * (w / CANVAS_WIDTH);
         ctx.strokeStyle = '#1a1a3e';
         ctx.stroke();
 
@@ -318,8 +321,8 @@
             const angle = startAngle + (i / tickCount) * totalAngle;
             const isMajor = i % 5 === 0; // 每5格一个大刻度
             
-            const innerR = isMajor ? r - 30 * (w / 560) : r - 20 * (w / 560);
-            const outerR = r - 5 * (w / 560);
+            const innerR = isMajor ? r - 35 * (w / CANVAS_WIDTH) : r - 25 * (w / CANVAS_WIDTH);
+            const outerR = r - 8 * (w / CANVAS_WIDTH);
             
             const x1 = cx + Math.cos(angle) * innerR;
             const y1 = cy + Math.sin(angle) * innerR;
@@ -329,16 +332,16 @@
             ctx.beginPath();
             ctx.moveTo(x1, y1);
             ctx.lineTo(x2, y2);
-            ctx.lineWidth = isMajor ? 4 : 2;
+            ctx.lineWidth = isMajor ? 5 : 3;
             ctx.strokeStyle = isMajor ? '#ffffff' : '#555';
             ctx.stroke();
 
             // 绘制大刻度的数字
             if (isMajor) {
-                const textR = innerR - 15 * (w / 560);
+                const textR = innerR - 18 * (w / CANVAS_WIDTH);
                 const tx = cx + Math.cos(angle) * textR;
                 const ty = cy + Math.sin(angle) * textR;
-                ctx.font = `${12 * (w / 560)}px sans-serif`;
+                ctx.font = `${14 * (w / CANVAS_WIDTH)}px sans-serif`;
                 ctx.fillStyle = '#aaa';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
@@ -358,7 +361,7 @@
         
         ctx.beginPath();
         ctx.arc(cx, cy, r, Math.PI, 0, false);
-        ctx.lineWidth = 20 * (w / 560);
+        ctx.lineWidth = 24 * (w / CANVAS_WIDTH);
         ctx.strokeStyle = gradient;
         ctx.stroke();
 
@@ -367,13 +370,13 @@
         const limitedDeviation = Math.max(-MAX_DEVIATION, Math.min(MAX_DEVIATION, deviation));
         const pointerAngle = startAngle + ((limitedDeviation + MAX_DEVIATION) / (MAX_DEVIATION * 2)) * totalAngle;
         
-        const pointerLength = r - 25 * (w / 560);
+        const pointerLength = r - 30 * (w / CANVAS_WIDTH);
         const px = cx + Math.cos(pointerAngle) * pointerLength;
         const py = cy + Math.sin(pointerAngle) * pointerLength;
 
         // 指针底座
         ctx.beginPath();
-        ctx.arc(cx, cy, 10 * (w / 560), 0, Math.PI * 2);
+        ctx.arc(cx, cy, 12 * (w / CANVAS_WIDTH), 0, Math.PI * 2);
         ctx.fillStyle = '#fff';
         ctx.fill();
 
@@ -381,14 +384,14 @@
         ctx.beginPath();
         ctx.moveTo(cx, cy);
         ctx.lineTo(px, py);
-        ctx.lineWidth = 4 * (w / 560);
+        ctx.lineWidth = 5 * (w / CANVAS_WIDTH);
         ctx.strokeStyle = '#fff';
         ctx.lineCap = 'round';
         ctx.stroke();
 
         // 指针头部圆点
         ctx.beginPath();
-        ctx.arc(px, py, 6 * (w / 560), 0, Math.PI * 2);
+        ctx.arc(px, py, 8 * (w / CANVAS_WIDTH), 0, Math.PI * 2);
         ctx.fillStyle = '#ff5252';
         ctx.fill();
         ctx.strokeStyle = '#fff';
@@ -410,7 +413,7 @@
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             microphone = audioContext.createMediaStreamSource(stream);
             analyser = audioContext.createAnalyser();
-            analyser.fftSize = 2048;
+            analyser.fftSize = 1024;
             microphone.connect(analyser);
             dataArray = new Uint8Array(analyser.frequencyBinCount);
 
@@ -466,7 +469,7 @@
                     correlation += Math.abs((dataArray[i] - 128) * (dataArray[i + offset] - 128));
                 }
                 correlation /= 1000;
-                if (correlation > 0.9 && correlation <= lastCorrelation) {
+                if (correlation > 0.95 && correlation <= lastCorrelation) {
                     foundGoodCorrelation = true;
                     if (!foundGoodCorrelation) {
                         bestCorrelation = correlation;
@@ -489,7 +492,7 @@
                 const freq = sampleRate / bestOffset;
                 
                 // 只处理二胡附近的频率范围
-                if (freq > 200 && freq < 600) {
+                if (freq > 250 && freq < 550) {
                     updateUI(freq);
                 } else {
                     actionTextEl.innerText = '等待拉琴...';
@@ -507,7 +510,6 @@
         hzValueEl.innerText = freq.toFixed(1);
         
         // 计算偏差 (以 D 弦为基准参考，或者可以根据最近弦计算)
-        // 这里简单处理：计算与目标频率的最小差值
         const diffD = freq - INNER_FREQ;
         const diffA = freq - OUTER_FREQ;
         const minDiff = Math.abs(diffD) < Math.abs(diffA) ? diffD : diffA;
