@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>二胡调音器</title>
+    <style>
+        :root {
+            --bg: #060618;
+            --bg-card: #0f0f2a;
+            --gold: #ffd700;
+            --green: #00e676;
+            --red: #ff5252;
+            --blue: #00b0ff;
+            --orange: #ff6e40;
+            --purple: #7c4dff;
+            --text: #ffffff;
+            --text-dim: #8899aa;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: radial-gradient(ellipse at center, #0a0a25 0%, #03030c 100%);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 24px 16px 16px 16px;
+            padding-bottom: calc(16px + env(safe-area-inset-bottom));
+        }
+
+        /* ===== 标题区 ===== */
+        .header {
+            text-align: center;
+            margin-bottom: 6px;
+            flex-shrink: 0;
+        }
+        .header h1 {
+            font-size: 26px;
+            color: var(--gold);
+            letter-spacing: 3px;
+            text-shadow: 0 0 12px rgba(255, 215, 0, 0.35);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .status-bar {
+            margin-top: 6px;
+            font-size: 13px;
+            color: var(--text-dim);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #444;
+            transition: background 0.3s, box-shadow 0.3s;
+        }
+        .status-dot.active {
+            background: var(--green);
+            box-shadow: 0 0 10px var(--green);
+        }
+
+        /* ===== 表盘区（独立层，不被任何元素遮挡） ===== */
+        .meter-section {
+            position: relative;
+            width: 100%;
+            max-width: 360px;
+            height: 200px;
+            margin: 8px 0 0 0;
+            flex-shrink: 0;
+        }
+        .meter-section canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* ===== 赫兹数字区（完全独立于表盘下方） ===== */
+        .hz-section {
+            width: 100%;
+            max-width: 360px;
+            text-align: center;
+            margin-top: 4px;
+            flex-shrink: 0;
+            z-index: 2;
+        }
+        .hz-value {
+            font-size: 52px;
+            font-weight: 800;
+            color: var(--text);
+            line-height: 1.1;
+            letter-spacing: 1px;
+            text-shadow: 0 0 16px rgba(0, 176, 255, 0.35);
+        }
+        .hz-unit {
+            font-size: 22px;
+            color: var(--blue);
+            margin-left: 4px;
+            font-weight: 600;
+        }
+
+        /* ===== 提示文字区 ===== */
+        .message-section {
+            width: 100%;
+            max-width: 360px;
+            text-align: center;
+            margin-top: 10px;
+            flex-shrink: 0;
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .message-box {
+            font-size: 26px;
+            font-weight: 700;
+            padding: 8px 28px;
+            border-radius: 12px;
+            transition: all 0.15s ease;
+            letter-spacing: 1px;
+        }
+        .msg-idle {
+            color: var(--text-dim);
+            background: rgba(255,255,255,0.04);
+            font-size: 20px;
+            font-weight: 400;
+        }
+        .msg-low {
+            color: var(--blue);
+            background: rgba(0, 176, 255, 0.12);
+            border: 1.5px solid rgba(0, 176, 255, 0.3);
+        }
+        .msg-high {
+            color: var(--red);
+            background: rgba(255, 82, 82, 0.12);
+            border: 1.5px solid rgba(255, 82, 82, 0.3);
+        }
+        .msg-good {
+            color: var(--green);
+            background: rgba(0, 230, 118, 0.12);
+            border: 1.5px solid rgba(0, 230, 118, 0.3);
+        }
+
+        /* ===== 按钮区 ===== */
+        .btn-section {
+            width: 100%;
+            max-width: 360px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            margin-top: 16px;
+            flex-shrink: 0;
+        }
+
+        .btn {
+            width: 100%;
+            border: none;
+            border-radius: 14px;
+            font-size: 19px;
+            font-weight: 700;
+            color: #fff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            -webkit-touch-callout: none;
+            user-select: none;
+            transition: transform 0.08s ease, opacity 0.2s;
+        }
+        .btn:active {
+            transform: scale(0.97);
+            opacity: 0.92;
+        }
+
+        .btn-start {
+            padding: 17px 20px;
+            background: linear-gradient(135deg, #ff8a50, #ff4d00);
+            box-shadow: 0 4px 24px rgba(255, 77, 0, 0.35);
+            font-size: 20px;
+        }
+        .btn-stop {
+            padding: 17px 20px;
+            background: linear-gradient(135deg, #666, #333);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            font-size: 20px;
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 12px;
+            width: 100%;
+        }
+        .btn-listen {
+            flex: 1;
+            padding: 14px 10px;
+            background: linear-gradient(135deg, #5c5ca8, #3a3a80);
+            box-shadow: 0 3px 10px rgba(92, 92, 168, 0.3);
+            font-size: 16px;
+        }
+
+        /* ===== 底部提示 ===== */
+        .footer {
+            margin-top: 14px;
+            text-align: center;
+            font-size: 12px;
+            color: #555;
+            line-height: 1.7;
+            flex-shrink: 0;
+        }
+
+        /* ===== 微信遮罩 ===== */
+        #wx-mask {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.88);
+            z-index: 9999;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 30px;
+            text-align: center;
+        }
+        #wx-mask .wx-arrow {
+            position: absolute;
+            top: 20px;
+            right: 24px;
+            font-size: 56px;
+            color: var(--gold);
+        }
+        #wx-mask p {
+            font-size: 22px;
+            line-height: 1.8;
+            color: #fff;
+        }
+        #wx-mask .wx-btn {
+            margin-top: 28px;
+            padding: 14px 36px;
+            font-size: 18px;
+            border: none;
+            border-radius: 12px;
+            background: var(--orange);
+            color: #fff;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 微信遮罩 -->
+    <div id="wx-mask">
+        <div class="wx-arrow">↗</div>
+        <p>请点右上角 <strong>···</strong><br>选 <strong>「在浏览器打开」</strong><br><br>iPhone → Safari<br>安卓 → 系统浏览器</p>
+        <button class="wx-btn" onclick="copyLink()">复制网址</button>
+    </div>
+
+    <!-- 标题 -->
+    <div class="header">
+        <h1>🎻 二胡调音器</h1>
+        <div class="status-bar">
+            <div class="status-dot" id="statusDot"></div>
+            <span id="statusText">未启动</span>
+        </div>
+    </div>
+
+    <!-- 表盘（独立层） -->
+    <div class="meter-section">
+        <canvas id="meterCanvas"></canvas>
+    </div>
+
+    <!-- 赫兹数字（表盘正下方，完全独立） -->
+    <div class="hz-section">
+        <span class="hz-value" id="hzValue">0.0</span>
+        <span class="hz-unit">Hz</span>
+    </div>
+
+    <!-- 提示文字 -->
+    <div class="message-section">
+        <div class="message-box msg-idle" id="msgBox">等待拉琴…</div>
+    </div>
+
+    <!-- 按钮 -->
+    <div class="btn-section">
+        <button class="btn btn-start" id="toggleBtn">
+            <span>🎤</span> 开始调音
+        </button>
+        <div class="btn-row">
+            <button class="btn btn-listen" id="playInnerBtn">🔊 听内弦 D</button>
+            <button class="btn btn-listen" id="playOuterBtn">🔊 听外弦 A</button>
+        </div>
+    </div>
+
+    <!-- 底部说明 -->
+    <div class="footer">
+        拉琴时琴码靠近手机底部麦克风<br>
+        内弦标准 D ≈ 293.7Hz · 外弦标准 A ≈ 440Hz
+    </div>
+
+<script>
+// ============================================================
+//  DOM 引用
+// ============================================================
+const canvas       = document.getElementById('meterCanvas');
+const ctx         = canvas.getContext('2d');
+const hzValueEl   = document.getElementById('hzValue');
+const msgBox      = document.getElementById('msgBox');
+const toggleBtn   = document.getElementById('toggleBtn');
+const statusDot   = document.getElementById('statusDot');
+const statusText  = document.getElementById('statusText');
+const playInner   = document.getElementById('playInnerBtn');
+const playOuter   = document.getElementById('playOuterBtn');
+
+// ============================================================
+//  常量
+// ============================================================
+const INNER_FREQ  = 293.7;
+const OUTER_FREQ  = 440.0;
+const MAX_CENTS   = 50;          // 表盘覆盖 ±50 音分
+const SMOOTHING   = 0.12;       // 指针平滑系数（越小越丝滑）
+const RMS_THRESHOLD = 12;        // 音量阈值
+
+// ============================================================
+//  状态
+// ============================================================
+let audioCtx, analyser, mic, dataArray;
+let isListening = false;
+let rafId = null;
+
+// 指针平滑
+let currentDeviation = 0;        // 当前显示偏差（音分）
+let targetDeviation  = 0;        // 目标偏差
+let smoothedFreq     = 0;        // 平滑后的频率
+
+// ============================================================
+//  Canvas 尺寸（高清屏适配）
+// ============================================================
+let DPR = 1, CW = 360, CH = 200;
+const RADIUS = 135;              // 表盘半径（逻辑像素）
+
+function resizeCanvas() {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    CW = rect.width;
+    CH = rect.height;
+    DPR = window.devicePixelRatio || 1;
+    canvas.width  = CW * DPR;
+    canvas.height = CH * DPR;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    drawMeter(currentDeviation);
+}
+window.addEventListener('resize', resizeCanvas);
+
+// ============================================================
+//  绘制半圆表盘
+// ============================================================
+function drawMeter(deviationCents) {
+    ctx.clearRect(0, 0, CW, CH);
+
+    const cx = CW / 2;
+    const cy = CH - 16;           // 圆心靠下
+    const r  = Math.min(RADIUS, CW / 2 - 16);
+
+    // ---- 背景弧 ----
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, Math.PI, 0, false);
+    ctx.lineWidth = 22;
+    ctx.strokeStyle = '#111133';
+    ctx.stroke();
+
+    // ---- 彩色弧（红→黄→绿→黄→红）----
+    const grad = ctx.createLinearGradient(cx - r, 0, cx + r, 0);
+    grad.addColorStop(0,    '#ff3b3b');
+    grad.addColorStop(0.2,  '#ff8c00');
+    grad.addColorStop(0.4,  '#ffd600');
+    grad.addColorStop(0.5,  '#00e676');
+    grad.addColorStop(0.6,  '#ffd600');
+    grad.addColorStop(0.8,  '#ff8c00');
+    grad.addColorStop(1,    '#ff3b3b');
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, Math.PI, 0, false);
+    ctx.lineWidth = 22;
+    ctx.strokeStyle = grad;
+    ctx.stroke();
+
+    // ---- 刻度 ----
+    const tickCount = 20; // -50 到 +50，每 5 音分一格
+    for (let i = 0; i <= tickCount; i++) {
+        const t = i / tickCount;
+        const angle = Math.PI + t * Math.PI;
+        const isMajor = (i % 5 === 0);
+        const innerR = isMajor ? r - 32 : r - 24;
+        const outerR = r - 14;
+
+        ctx.beginPath();
+        ctx.moveTo(cx + Math.cos(angle) * innerR, cy + Math.sin(angle) * innerR);
+        ctx.lineTo(cx + Math.cos(angle) * outerR, cy + Math.sin(angle) * outerR);
+        ctx.lineWidth = isMajor ? 3 : 1.5;
+        ctx.strokeStyle = isMajor ? '#ffffff' : '#555';
+        ctx.stroke();
+
+        if (isMajor) {
+            const val = Math.round((i / tickCount) * (MAX_CENTS * 2) - MAX_CENTS);
+            const tr = innerR - 14;
+            const tx = cx + Math.cos(angle) * tr;
+            const ty = cy + Math.sin(angle) * tr;
+            ctx.font = '11px -apple-system, sans-serif';
+            ctx.fillStyle = '#999';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(val, tx, ty);
+        }
+    }
+
+    // ---- 中心绿点 ----
+    ctx.beginPath();
+    ctx.arc(cx, cy, 7, 0, Math.PI * 2);
+    ctx.fillStyle = '#00e676';
+    ctx.fill();
+
+    // ---- 指针 ----
+    const clamped = Math.max(-MAX_CENTS, Math.min(MAX_CENTS, deviationCents));
+    const angle = Math.PI + ((clamped + MAX_CENTS) / (MAX_CENTS * 2)) * Math.PI;
+    const plen = r - 36;
+    const px = cx + Math.cos(angle) * plen;
+    const py = cy + Math.sin(angle) * plen;
+
+    // 阴影
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.4)';
+    ctx.shadowBlur = 6;
+    ctx.shadowOffsetY = 3;
+
+    // 指针线
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(px, py);
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineCap = 'round';
+    ctx.stroke();
+
+    // 指针头圆点
+    ctx.beginPath();
+    ctx.arc(px, py, 6, 0, Math.PI * 2);
+    ctx.fillStyle = Math.abs(clamped) < 2 ? '#00e676' : '#ff5252';
+    ctx.fill();
+    ctx.restore();
+}
+
+// ============================================================
+//  指针平滑动画循环（独立于音频检测）
+// ============================================================
+function animatePointer() {
+    // 向目标值逼近（阻尼平滑）
+    currentDeviation += (targetDeviation - currentDeviation) * SMOOTHING;
+
+    // 当差值极小时直接对齐，避免无限微小抖动
+    if (Math.abs(targetDeviation - currentDeviation) < 0.05) {
+        currentDeviation = targetDeviation;
+    }
+
+    drawMeter(currentDeviation);
+    rafId = requestAnimationFrame(animatePointer);
+}
+
+// ============================================================
+//  音频初始化
+// ============================================================
+async function startAudio() {
+    try {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') await audioCtx.resume();
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+        });
+        mic = audioCtx.createMediaStreamSource(stream);
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 2048;
+        mic.connect(analyser);
+        dataArray = new Float32Array(analyser.frequencyBinCount);
+
+        isListening = true;
+        toggleBtn.className = 'btn btn-stop';
+        toggleBtn.innerHTML = '<span>🛑</span> 停止调音';
+        statusDot.classList.add('active');
+        statusText.textContent = '监听中';
+
+        // 启动平滑动画循环
+        if (rafId) cancelAnimationFrame(rafId);
+        animatePointer();
+
+        detectPitch();
+    } catch (err) {
+        alert('无法访问麦克风，请在浏览器中允许麦克风权限。\n\n错误信息：' + err.message);
+        console.error(err);
+    }
+}
+
+function stopAudio() {
+    isListening = false;
+    toggleBtn.className = 'btn btn-start';
+    toggleBtn.innerHTML = '<span>🎤</span> 开始调音';
+    statusDot.classList.remove('active');
+    statusText.textContent = '未启动';
+
+    if (mic) mic.disconnect();
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+
+    // 缓慢回到零位
+    targetDeviation = 0;
+    smoothedFreq = 0;
+    hzValueEl.textContent = '0.0';
+    setMessage('idle', '等待拉琴…');
+}
+
+// ============================================================
+//  音高检测（自相关 + 抛物线插值）
+// ============================================================
+function detectPitch() {
+    if (!isListening) return;
+    analyser.getFloatTimeDomainData(dataArray);
+
+    const rms = calcRMS(dataArray);
+
+    if (rms > RMS_THRESHOLD / 256) {
+        const freq = autoCorrelate(dataArray, audioCtx.sampleRate);
+
+        if (freq && freq > 240 && freq < 550) {
+            // 指数平滑频率
+            smoothedFreq = smoothedFreq ? smoothedFreq * 0.7 + freq * 0.3 : freq;
+
+            // 判断内外弦
+            const diffD = smoothedFreq - INNER_FREQ;
+            const diffA = smoothedFreq - OUTER_FREQ;
+            const useInner = Math.abs(diffD) < Math.abs(diffA);
+            const target = useInner ? INNER_FREQ : OUTER_FREQ;
+            const cents = 1200 * Math.log2(smoothedFreq / target);
+
+            // 更新目标值（供动画循环平滑逼近）
+            targetDeviation = Math.max(-MAX_CENTS, Math.min(MAX_CENTS, cents));
+
+            // 更新数字（无平滑，直接显示）
+            hzValueEl.textContent = smoothedFreq.toFixed(1);
+
+            // 更新提示文字
+            if (Math.abs(cents) < 2) {
+                setMessage('good', '✓ 音准很好');
+            } else if (cents < 0) {
+                setMessage('low', '▼ 偏低　请拧紧');
+            } else {
+                setMessage('high', '▲ 偏高　请拧松');
+            }
+        } else {
+            setMessage('idle', '等待拉琴…');
+            targetDeviation *= 0.95; // 缓慢归零
+        }
+    } else {
+        setMessage('idle', '等待拉琴…');
+        targetDeviation *= 0.95;
+    }
+
+    rafId = requestAnimationFrame(() => detectPitch());
+}
+
+function autoCorrelate(buf, sampleRate) {
+    const size = buf.length;
+    let rms = 0;
+    for (let i = 0; i < size; i++) rms += buf[i] * buf[i];
+    rms = Math.sqrt(rms / size);
+    if (rms < 0.008) return 0;
+
+    // 找过零点裁剪
+    let r1 = 0, r2 = size - 1;
+    for (let i = 0; i < size / 2; i++) {
+        if (Math.abs(buf[i]) < 0.02) { r1 = i; break; }
+    }
+    for (let i = 1; i < size / 2; i++) {
+        if (Math.abs(buf[size - i]) < 0.02) { r2 = size - i; break; }
+    }
+    const cropped = buf.slice(r1, r2);
+    const n = cropped.length;
+    if (n < 64) return 0;
+
+    // 自相关
+    const corr = new Float32Array(n);
+    for (let lag = 0; lag < n; lag++) {
+        let sum = 0;
+        for (let i = 0; i < n - lag; i++) {
+            sum += cropped[i] * cropped[i + lag];
+        }
+        corr[lag] = sum;
+    }
+
+    // 找最大峰值（跳过 lag=0）
+    let maxVal = -1, maxLag = -1;
+    let foundPeak = false;
+    for (let lag = 2; lag < n; lag++) {
+        if (corr[lag] > maxVal) {
+            maxVal = corr[lag];
+            maxLag = lag;
+        }
+        // 找到第一个峰值后继续找更高峰
+        if (corr[lag] < corr[lag - 1] && maxLag > 0) {
+            foundPeak = true;
+        }
+        if (foundPeak && corr[lag] > maxVal) {
+            maxVal = corr[lag];
+            maxLag = lag;
+        }
+    }
+
+    if (maxLag <= 0) return 0;
+
+    // 抛物线插值（提高精度）
+    if (maxLag > 0 && maxLag < n - 1) {
+        const y1 = corr[maxLag - 1];
+        const y2 = corr[maxLag];
+        const y3 = corr[maxLag + 1];
+        const a = (y1 + y3 - 2 * y2) / 2;
+        const b = (y3 - y1) / 2;
+        if (Math.abs(a) > 1e-6) {
+            const shift = -b / (2 * a);
+            maxLag += shift;
+        }
+    }
+
+    return sampleRate / maxLag;
+}
+
+function calcRMS(buf) {
+    let s = 0;
+    for (let i = 0; i < buf.length; i++) s += buf[i] * buf[i];
+    return Math.sqrt(s / buf.length);
+}
+
+// ============================================================
+//  提示文字
+// ============================================================
+function setMessage(type, text) {
+    msgBox.className = 'message-box';
+    switch (type) {
+        case 'low':   msgBox.classList.add('msg-low');   break;
+        case 'high':  msgBox.classList.add('msg-high');  break;
+        case 'good':  msgBox.classList.add('msg-good');  break;
+        default:      msgBox.classList.add('msg-idle');  break;
+    }
+    msgBox.textContent = text;
+}
+
+// ============================================================
+//  播放参考音
+// ============================================================
+function playTone(freq) {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+
+    const osc  = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+
+    gain.gain.setValueAtTime(0, audioCtx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.4, audioCtx.currentTime + 0.08);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 2.5);
+
+    osc.start();
+    osc.stop(audioCtx.currentTime + 2.5);
+}
+
+// ============================================================
+//  微信检测
+// ============================================================
+(function () {
+    if (/MicroMessenger/i.test(navigator.userAgent)) {
+        document.getElementById('wx-mask').style.display = 'flex';
+    }
+})();
+
+function copyLink() {
+    if (navigator.clipboard) navigator.clipboard.writeText(location.href);
+    alert('网址已复制，请去浏览器粘贴打开');
+}
+
+// ============================================================
+//  事件绑定
+// ============================================================
+toggleBtn.addEventListener('click', () => {
+    isListening ? stopAudio() : startAudio();
+});
+playInner.addEventListener('click', () => playTone(INNER_FREQ));
+playOuter.addEventListener('click', () => playTone(OUTER_FREQ));
+
+// ============================================================
+//  初始化
+// ============================================================
+resizeCanvas();
+drawMeter(0);
+
+</script>
+</body>
+</html>
