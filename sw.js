@@ -1,4 +1,4 @@
-const CACHE = 'erhu-tuner-v3-micfix';
+const CACHE = 'erhu-tuner-v4-sensitivity-volume';
 const FILES = ['./', './index.html', './manifest.json'];
 
 self.addEventListener('install', event => {

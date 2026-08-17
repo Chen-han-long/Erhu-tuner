@@ -168,6 +168,33 @@
             border: 1.5px solid rgba(0, 230, 118, 0.3);
         }
 
+        /* ===== 老人友好灵敏度调节 ===== */
+        .sensitivity-section {
+            width: 100%;
+            max-width: 360px;
+            margin-top: 8px;
+            padding: 10px 14px;
+            border-radius: 14px;
+            background: rgba(255,255,255,0.06);
+            color: #ddd;
+            font-size: 15px;
+        }
+        .sensitivity-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .sensitivity-row input {
+            flex: 1;
+            accent-color: #00e676;
+        }
+        .sensitivity-value {
+            min-width: 48px;
+            text-align: right;
+            color: #00e676;
+            font-weight: 700;
+        }
+
         /* ===== 按钮区 ===== */
         .btn-section {
             width: 100%;
@@ -308,6 +335,15 @@
         <div class="message-box msg-idle" id="msgBox">等待拉琴…</div>
     </div>
 
+    <!-- 指针灵敏度 -->
+    <div class="sensitivity-section">
+        <div class="sensitivity-row">
+            <span>指针灵敏度</span>
+            <input id="sensitivitySlider" type="range" min="1" max="5" step="1" value="3">
+            <span class="sensitivity-value" id="sensitivityValue">标准</span>
+        </div>
+    </div>
+
     <!-- 按钮 -->
     <div class="btn-section">
         <button class="btn btn-start" id="toggleBtn">
@@ -338,6 +374,8 @@ const statusDot    = document.getElementById('statusDot');
 const statusText   = document.getElementById('statusText');
 const playInner    = document.getElementById('playInnerBtn');
 const playOuter    = document.getElementById('playOuterBtn');
+const sensitivitySlider = document.getElementById('sensitivitySlider');
+const sensitivityValue = document.getElementById('sensitivityValue');
 
 // ============================================================
 //  常量：针对二胡 D4 / A4 优化，减少无意义计算
@@ -394,6 +432,8 @@ let lastAudioActivityTime = 0;
 let currentDeviation = 0;
 let targetDeviation = 0;
 let pointerVelocity = 0;
+// 1=最稳，5=最灵敏；同时影响指针移动和数字稳定程度
+let tunerSensitivity = 3;
 
 // 音高状态
 let smoothedLogFreq = 0;
@@ -569,7 +609,8 @@ function animatePointer(timestamp) {
     lastRenderTime = timestamp;
 
     const error = targetDeviation - currentDeviation;
-    const acceleration = POINTER_STIFFNESS * error - POINTER_DAMPING * pointerVelocity;
+    const sensitivityScale = tunerSensitivity / 3;
+    const acceleration = POINTER_STIFFNESS * sensitivityScale * error - POINTER_DAMPING * pointerVelocity;
     pointerVelocity += acceleration * dt;
     currentDeviation += pointerVelocity * dt;
 
@@ -581,6 +622,14 @@ function animatePointer(timestamp) {
     drawMeter(currentDeviation);
     renderRafId = requestAnimationFrame(animatePointer);
 }
+
+function updateSensitivity() {
+    tunerSensitivity = Number(sensitivitySlider.value);
+    const labels = {1:'很稳', 2:'较稳', 3:'标准', 4:'灵敏', 5:'快速'};
+    sensitivityValue.textContent = labels[tunerSensitivity];
+}
+sensitivitySlider.addEventListener('input', updateSensitivity);
+updateSensitivity();
 
 // ============================================================
 //  音频初始化
@@ -779,6 +828,8 @@ function applyPitch(rawFreq, confidence) {
         // 大变化迅速跟随，小变化轻度稳住；置信度越高，响应越快。
         let alpha = jumpCents > 10 ? 0.82 : (jumpCents > 4 ? 0.62 : 0.42);
         alpha *= 0.85 + 0.15 * confidence;
+        // 低灵敏度模式增加数字稳定性，方便老人查看
+        alpha *= (0.45 + tunerSensitivity * 0.18);
         smoothedLogFreq += (rawLog - smoothedLogFreq) * alpha;
     }
 
@@ -790,7 +841,8 @@ function applyPitch(rawFreq, confidence) {
     const useInner = Math.abs(centsToD) <= Math.abs(centsToA);
     const cents = useInner ? centsToD : centsToA;
 
-    targetDeviation = Math.max(-MAX_CENTS, Math.min(MAX_CENTS, cents));
+    const pointerTarget = cents * (0.45 + tunerSensitivity * 0.18);
+    targetDeviation = Math.max(-MAX_CENTS, Math.min(MAX_CENTS, pointerTarget));
 
     const hzText = freq.toFixed(1);
     if (hzValueEl.textContent !== hzText) hzValueEl.textContent = hzText;
@@ -931,8 +983,8 @@ function playTone(freq) {
     osc.frequency.value = freq;
 
     gain.gain.setValueAtTime(0, audioCtx.currentTime);
-    gain.gain.linearRampToValueAtTime(0.4, audioCtx.currentTime + 0.08);
-    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 2.5);
+    gain.gain.linearRampToValueAtTime(1.0, audioCtx.currentTime + 0.08);
+    gain.gain.exponentialRampToValueAtTime(0.003, audioCtx.currentTime + 2.5);
 
     osc.start();
     osc.stop(audioCtx.currentTime + 2.5);
